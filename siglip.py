@@ -5,7 +5,15 @@ from typing import Optional, Tuple
 
 class SigLIPVisionConfig:
     """
-    Defines the configuration for the vision component of the SigLIP model 
+    Defines the configuration for the vision component of the SigLIP model.
+
+    This class defines the hyperparameters and architectural settings for the
+    vision transformer used in SigLIP. It includes parameters such as the size
+    of hidden layers, number of attention heads, image dimensions, and various
+    other settings that determine the structure and behavior of the vision model.
+
+    The class allows for easy configuration and modification of these parameters,
+    facilitating experimentation with different model architectures.
     """
 
     def __init__(
@@ -45,3 +53,30 @@ class SigLIPVisionConfig:
         # self.hidden_act = hidden_act
         # self.hidden_dropout_prob = hidden_dropout_prob
         # self.qkv_bias = qkv_bias
+
+
+class SigLIPVisionModel(nn.Module):
+    """
+    This class is a wrapper around the SigLIPVisionTransformer.
+    It takes pixel values as input and processes them through the vision transformer.
+
+    This class serves as the main interface for the vision component of the SigLIP model.
+    It encapsulates the configuration and the actual transformer model, providing a
+    simple forward method that can be easily integrated into the larger SigLIP architecture.
+
+    Attributes:
+        config (SigLIPVisionConfig): Configuration object for the vision model.
+        vision_model (SigLIPVisionTransformer): The underlying vision transformer model.
+
+    Methods:
+        forward(pixel_values): Processes the input pixel values through the vision transformer.
+    """
+
+    def __init__(self, config: SigLIPVisionConfig):
+        super().__init__()
+        self.config = config
+        self.vision_model = SigLIPVisionTransformer(config)
+
+    def forward(self, pixel_values) -> Tuple:
+        # (B, C, H, W) -> (B, num_patches, embd_dim)
+        return self.vision_model(pixel_values=pixel_values)
