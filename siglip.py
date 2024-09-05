@@ -55,6 +55,45 @@ class SigLIPVisionConfig:
         # self.qkv_bias = qkv_bias
 
 
+class SigLIPVisionTransformer(nn.Module):
+    """
+    This class implements the Vision Transformer (ViT) architecture for the SigLIP model.
+    
+    It processes image inputs by:
+    1. Embedding the image patches
+    2. Passing the embedded patches through a series of transformer encoder layers
+    3. Applying a final layer normalization
+    
+    The class takes a SigLIPVisionConfig object to define its architecture and hyperparameters.
+    
+    Key components:
+    - embeddings: Converts image patches to embeddings
+    - encoder: Processes embeddings through transformer layers
+    - layernorm: Applies final normalization to the output
+    
+    The forward method takes pixel values as input and returns the processed
+    image representations.
+    """
+
+    def __init__(self, config: SigLIPVisionConfig):
+        super().__init__()
+        self.config = config
+        embed_dim = config.hidden_size
+
+        self.embeddings = SigLIPVisionEmbeddings(config)
+        self.encoder = SigLIPEncoder(config)
+        self.layernorm = nn.LayerNorm(embed_dim, eps=config.layer_norm_eps)
+
+    def forward(self, pixel_values: torch.Tensor):
+        # pixel_values: (B, C, H, W)
+        embeddings_output = self.embeddings(pixel_values)
+        encoder_output = self.encoder(input_embeds=embeddings_output)
+        output = self.layernorm(encoder_output)
+
+        # output: (B, num_patches, embed_dim)
+        return output
+    
+    
 class SigLIPVisionModel(nn.Module):
     """
     This class is a wrapper around the SigLIPVisionTransformer.
@@ -78,5 +117,5 @@ class SigLIPVisionModel(nn.Module):
         self.vision_model = SigLIPVisionTransformer(config)
 
     def forward(self, pixel_values) -> Tuple:
-        # (B, C, H, W) -> (B, num_patches, embd_dim)
+        # (B, C, H, W) -> (B, num_patches, embed_dim)
         return self.vision_model(pixel_values=pixel_values)
