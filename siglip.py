@@ -55,6 +55,61 @@ class SigLIPVisionConfig:
         # self.qkv_bias = qkv_bias
 
 
+class SigLIPVisionEmbeddings(nn.Module):
+    """
+    This class implements the embedding layer for the vision component of the SigLIP model.
+    
+    It performs the following operations:
+    1. Converts input images into patches using a convolutional layer.
+    2. Flattens and embeds these patches into a lower-dimensional space.
+    3. Adds positional embeddings to provide spatial information to the model.
+    
+    The resulting embeddings serve as the input to the subsequent transformer layers
+    in the SigLIP vision model.
+    """
+
+    def __init__(self, config: SigLIPVisionConfig):
+        super().__init__()
+        self.config = config
+        self.embed_dim = config.hidden_size
+        self.image_size = config.image_size
+        self.patch_size = config.patch_size
+        self.num_patches = (self.image_size // self.patch_size) ** 2
+        
+        self.patch_embeddings = nn.Conv2d(
+            in_channels=config.num_channels,
+            out_channels=self.embed_dim,
+            kernel_size=self.patch_size,
+            stride=self.patch_size,
+            padding="valid", # valid is the same as no padding
+        )
+
+        self.num_positions = self.num_patches
+        self.position_embeddings = nn.Embedding(num_embeddings=self.num_positions, embedding_dim=self.embed_dim)
+        self.register_buffer(
+            "position_ids",
+            torch.arange(self.num_positions).expand((1, -1)),
+            persistent=False,
+        )
+
+    def forward(self, pixel_values: torch.Tensor):
+
+        # convert image to patches
+        # (B, C, H, W) -> (B, embed_dim, num_patches_h, num_patches_w)
+        # where num_patches_h = image_height // patch_size and num_patches_w = image_width // patch_size
+        patch_embeddings = self.patch_embeddings(pixel_values)
+
+        # (B, embed_dim, num_patches_h, num_patches_w) -> (B, embed_dim, num_patches) -> (B, num_patches, embed_dim)
+        embeddings = patch_embeddings.flatten(2).transpose(1, 2)
+
+        # adding position embeddings
+        position_embeddings = self.position_embeddings(self.position_ids)
+        embeddings = embeddings + position_embeddings
+        
+        # (B, num_patches, embed_dim)
+        return embeddings
+
+        
 class SigLIPVisionTransformer(nn.Module):
     """
     This class implements the Vision Transformer (ViT) architecture for the SigLIP model.
