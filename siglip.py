@@ -72,6 +72,7 @@ class SigLIPMLP(nn.Module):
 
     def __init__(self, config: SigLIPVisionConfig):
         super().__init__()
+        self.config = config
         self.fc1 = nn.Linear(config.hidden_size, config.intermediate_size)
         self.fc2 = nn.Linear(config.intermediate_size, config.hidden_size)
 
@@ -113,6 +114,7 @@ class SigLIPAttention(nn.Module):
 
     def __init__(self, config: SigLIPVisionConfig):
         super().__init__()
+        self.config = config
         self.embed_dim = config.hidden_size
         self.num_heads = config.num_attention_heads
         self.head_dim = self.embed_dim // self.num_heads
@@ -195,6 +197,7 @@ class SigLIPEncoderLayer(nn.Module):
 
     def __init__(self, config: SigLIPVisionConfig):
         super().__init__()
+        self.config = config
         self.embed_dim = config.hidden_size
         self.self_attn = SigLIPAttention()
         self.layer_norm1 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
@@ -219,6 +222,46 @@ class SigLIPEncoderLayer(nn.Module):
         # skip connection
         hidden_states = residual + hidden_states
 
+        return hidden_states
+
+
+class SigLIPEncoder(nn.Module):
+    """
+    The SigLIPEncoder class represents the main encoder component of the SigLIP vision model.
+    
+    It consists of a stack of SigLIPEncoderLayers, where the number of layers is determined
+    by the configuration. This class is responsible for processing the input embeddings
+    through multiple transformer-like encoder layers.
+
+    Key features:
+    1. Utilizes a variable number of SigLIPEncoderLayers based on the configuration.
+    2. Processes input embeddings sequentially through all encoder layers.
+    3. Maintains the input shape throughout the encoding process.
+
+    The forward pass of this encoder can be summarized as:
+    1. Take input embeddings (typically from SigLIPVisionEmbeddings)
+    2. Pass the embeddings through each encoder layer sequentially
+    3. Return the final encoded representation
+
+    This architecture allows the model to learn hierarchical features and complex
+    relationships within the input data, which is crucial for vision tasks.
+    """
+
+    def __init__(self, config:SigLIPVisionConfig):
+        super().__init__()
+        self.config = config
+        self.layers = nn.ModuleList(
+            [SigLIPEncoderLayer(config) for _ in range(config.num_hidden_layers)]
+        )
+
+    def forward(self, input_embeds: torch.Tensor):
+        # input_embeds: (B, num_patches, embed_dim)
+        hidden_states = input_embeds
+
+        for encoder_layer in self.layers:
+            hidden_states = encoder_layer(hidden_states)
+        
+        # (B, num_patches, embed_dim)
         return hidden_states
 
 
