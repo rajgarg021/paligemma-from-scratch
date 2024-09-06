@@ -55,6 +55,37 @@ class SigLIPVisionConfig:
         # self.qkv_bias = qkv_bias
 
 
+class SigLIPMLP(nn.Module):
+    """
+    This class implements the Multi-Layer Perceptron (MLP) component of the SigLIP vision transformer.
+
+    The MLP consists of two fully connected layers with a GELU activation function in between.
+    It's used as part of the feed-forward network in each transformer encoder layer.
+
+    The forward pass of this MLP can be summarized as:
+    1. Project input from hidden_size to intermediate_size using fc1
+    2. Apply GELU activation
+    3. Project back from intermediate_size to hidden_size using fc2
+
+    This structure allows the model to capture complex non-linear relationships in the data.
+    """
+
+    def __init__(self, config: SigLIPVisionConfig):
+        super().__init__()
+        self.fc1 = nn.Linear(config.hidden_size, config.intermediate_size)
+        self.fc2 = nn.Linear(config.intermediate_size, config.hidden_size)
+
+    def forward(self, hidden_states: torch.Tensor):
+        # (B, num_patches, embed_dim) -> (B, num_patches, intermediate_size)
+        hidden_states = self.fc1(hidden_states)
+        # (B, num_patches, intermediate_size)
+        hidden_states = nn.functional.gelu(hidden_states, approximate="tanh")
+        # (B, num_patches, intermediate_size) -> (B, num_patches, embed_dim)
+        hidden_states = self.fc2(hidden_states)
+
+        return hidden_states
+
+
 class SigLIPEncoderLayer(nn.Module):
     """
     This class implements a single encoder layer of the SigLIP vision transformer.
@@ -83,7 +114,7 @@ class SigLIPEncoderLayer(nn.Module):
         self.embed_dim = config.hidden_size
         self.self_attn = SigLIPAttention(config)
         self.layer_norm1 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
-        self.mlp = SigLIPMLP(config)
+        self.mlp = SigLIPMLP()
         self.layer_norm2 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
 
     def forward(self, hidden_states: torch.Tensor):
