@@ -55,6 +55,58 @@ class SigLIPVisionConfig:
         # self.qkv_bias = qkv_bias
 
 
+class SigLIPEncoderLayer(nn.Module):
+    """
+    This class implements a single encoder layer of the SigLIP vision transformer.
+    
+    It consists of two main components:
+    1. Multi-head self-attention mechanism (SigLIPAttention)
+    2. Feed-forward neural network (SigLIPMLP)
+    
+    The encoder layer applies these components in sequence, with layer normalization
+    and residual connections around each component. This structure allows the model
+    to learn complex relationships within the input data while maintaining gradient flow.
+    
+    The forward pass of this layer can be summarized as:
+    1. Apply layer normalization to the input
+    2. Pass through self-attention
+    3. Add residual connection
+    4. Apply layer normalization
+    5. Pass through MLP
+    6. Add residual connection
+    
+    This architecture is based on the original Transformer model, adapted for vision tasks.
+    """
+
+    def __init__(self, config: SigLIPVisionConfig):
+        super().__init__()
+        self.embed_dim = config.hidden_size
+        self.self_attn = SigLIPAttention(config)
+        self.layer_norm1 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
+        self.mlp = SigLIPMLP(config)
+        self.layer_norm2 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
+
+    def forward(self, hidden_states: torch.Tensor):
+        # (B, num_patches, embed_dim)
+        residual = hidden_states
+        # (B, num_patches, embed_dim) -> (B, num_patches, embed_dim)
+        hidden_states = self.layer_norm1(hidden_states)
+        # (B, num_patches, embed_dim) -> (B, num_patches, embed_dim) 
+        hidden_states, _ = self.self_attn(hidden_states=hidden_states)
+        # skip connection
+        hidden_states = residual + hidden_states
+
+        residual = hidden_states
+        # (B, num_patches, embed_dim) -> (B, num_patches, embed_dim)
+        hidden_states = self.layer_norm2(hidden_states)
+        # (B, num_patches, embed_dim) -> (B, num_patches, embed_dim)
+        hidden_states = self.mlp(hidden_states)
+        # skip connection
+        hidden_states = residual + hidden_states
+
+        return hidden_states
+
+
 class SigLIPVisionEmbeddings(nn.Module):
     """
     This class implements the embedding layer for the vision component of the SigLIP model.
